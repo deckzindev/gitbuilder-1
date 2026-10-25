@@ -15,6 +15,7 @@ import android.os.Bundle
 import android.provider.OpenableColumns
 import android.text.InputType
 import android.view.View
+import android.view.ViewGroup
 import android.widget.*
 import org.json.JSONObject
 import java.text.SimpleDateFormat
@@ -25,8 +26,6 @@ class MainActivity : Activity() {
     private var zipName = ""
     private var items: List<JSONObject> = emptyList()
     private lateinit var tokenInput: EditText
-    private lateinit var tokenState: TextView
-    private lateinit var tokenConnected: View
     private lateinit var tokenEntry: View
     private lateinit var entryState: TextView
     private lateinit var zipState: TextView
@@ -37,71 +36,51 @@ class MainActivity : Activity() {
     private lateinit var histPane: View
     private lateinit var histList: ListView
     private lateinit var histEmpty: TextView
-    private var loginInfo = ""
     private var tokenInvalid = false
     private val tokenHint = "Escopos necessários: repo e workflow"
     private var entryMsg = tokenHint
 
-    private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
-
     override fun onCreate(b: Bundle?) {
         super.onCreate(b)
-        val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; fitsSystemWindows = true }
+        val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; fitsSystemWindows = true; setBackgroundColor(getColor(R.color.app_bg)) }
 
         // Abas
-        val tabs = LinearLayout(this)
+        val tabs = LinearLayout(this).apply { setPadding(dp(12), dp(8), dp(12), dp(4)) }
         tabBuild = Button(this).apply { text = "Compilar"; setOnClickListener { showTab(false) } }
         tabHist = Button(this).apply { text = "Histórico"; setOnClickListener { showTab(true) } }
-        tabs.addView(tabBuild, LinearLayout.LayoutParams(0, -2, 1f))
-        tabs.addView(tabHist, LinearLayout.LayoutParams(0, -2, 1f))
+        tabs.addView(tabBuild, LinearLayout.LayoutParams(0, dp(44), 1f).apply { setMargins(dp(4), 0, dp(4), 0) })
+        tabs.addView(tabHist, LinearLayout.LayoutParams(0, dp(44), 1f).apply { setMargins(dp(4), 0, dp(4), 0) })
         root.addView(tabs, LinearLayout.LayoutParams(-1, -2))
 
         // Aba Compilar
-        val form = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20), dp(16), dp(20), dp(24)) }
+        val form = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(24), dp(24), dp(24), dp(48)) }
         fun add(parent: LinearLayout, v: View, top: Int = 10) = parent.addView(v, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(top) })
-        fun sectionLabel(t: String) = TextView(this).apply { text = t; textSize = 12f; setTypeface(null, Typeface.BOLD); setTextColor(0xFF70757A.toInt()) }
-        fun card() = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(16), dp(14), dp(16), dp(16))
-            background = GradientDrawable().apply { setColor(Color.WHITE); setStroke(dp(1), 0xFFE0E0E0.toInt()); cornerRadius = dp(16).toFloat() }
-        }
+        val gray = muted
 
-        add(form, TextView(this).apply { text = "GitBuilder"; textSize = 26f; setTypeface(null, Typeface.BOLD) }, 0)
-
-        // Conta GitHub: com token salvo mostra só o status; sem token mostra o campo
-        add(form, sectionLabel("CONTA GITHUB"), 20)
-        val tokenCard = card()
-        tokenConnected = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-            tokenState = TextView(this@MainActivity).apply { textSize = 15f }
-            addView(tokenState, LinearLayout.LayoutParams(0, -2, 1f))
-            addView(Button(this@MainActivity).apply {
-                text = "Remover"; textSize = 12f; isAllCaps = false
-                setOnClickListener { TokenStore.clear(this@MainActivity); loginInfo = ""; tokenInvalid = false; entryMsg = tokenHint; refresh() }
-            }, LinearLayout.LayoutParams(-2, dp(40)))
-        }
+        // Token: só aparece enquanto não houver token válido salvo
         tokenEntry = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
+            setPadding(dp(16), dp(12), dp(16), dp(16))
+            background = GradientDrawable().apply {
+                setColor(if (night) 0xFF1E1F22.toInt() else Color.WHITE)
+                setStroke(dp(1), if (night) 0xFF3C4043.toInt() else 0xFFE0E0E0.toInt()); cornerRadius = dp(16).toFloat()
+            }
             tokenInput = EditText(this@MainActivity).apply {
                 hint = "Colar token do GitHub"
                 inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
             }
             addView(tokenInput, LinearLayout.LayoutParams(-1, -2))
-            entryState = TextView(this@MainActivity).apply { textSize = 12f; setTextColor(0xFF70757A.toInt()) }
+            entryState = TextView(this@MainActivity).apply { textSize = 12f; setTextColor(gray) }
             addView(entryState, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(4) })
-            addView(Button(this@MainActivity).apply { text = "Validar e salvar"; setOnClickListener { saveToken() } },
+            addView(Button(this@MainActivity).apply { text = "Validar e salvar"; setOnClickListener { saveToken() } }.also { styleBtn(it, surface, txt) },
                 LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8) })
         }
-        tokenCard.addView(tokenConnected, LinearLayout.LayoutParams(-1, -2))
-        tokenCard.addView(tokenEntry, LinearLayout.LayoutParams(-1, -2))
-        add(form, tokenCard, 6)
+        add(form, tokenEntry, 0)
 
         // Projeto
-        add(form, sectionLabel("PROJETO"), 20)
-        val projCard = card()
-        add(projCard, Button(this).apply { text = "Selecionar projeto (.zip)"; setOnClickListener { pickZip() } }, 0)
-        zipState = TextView(this).apply { textSize = 14f; gravity = Gravity.CENTER }
-        add(projCard, zipState, 8)
+        add(form, Button(this).apply { text = "Selecionar projeto (.zip)"; setOnClickListener { pickZip() } }.also { styleBtn(it, surface, txt) }, 16)
+        zipState = TextView(this).apply { textSize = 14f; gravity = Gravity.CENTER; setTextColor(gray) }
+        add(form, zipState, 8)
         btnBuild = Button(this).apply {
             text = "Compilar"
             setOnClickListener {
@@ -111,18 +90,16 @@ class MainActivity : Activity() {
                 val session = BuildSession.create(applicationContext, t, zipName.ifEmpty { "projeto.zip" }, u)
                 Sessions.current = session
                 // A compilação roda no serviço em primeiro plano: continua com o app fechado.
-                startForegroundService(Intent(this@MainActivity, BuildService::class.java)
-                    .setData(u).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))
+                startForegroundService(Intent(this@MainActivity, BuildService::class.java))
                 startActivity(Intent(this@MainActivity, BuildActivity::class.java).putExtra("history_id", session.id))
             }
         }
-        add(projCard, btnBuild, 8)
-        add(form, projCard, 6)
-        buildPane = ScrollView(this).apply { addView(form) }
+        add(form, btnBuild, 8)
+        buildPane = ScrollView(this).apply { isFillViewport = true; addView(form) }
 
         // Aba Histórico
         histList = ListView(this)
-        histEmpty = TextView(this).apply { text = "Nenhuma compilação ainda."; setPadding(dp(20), dp(20), dp(20), dp(20)) }
+        histEmpty = TextView(this).apply { text = "Nenhuma compilação ainda."; gravity = Gravity.CENTER; setTextColor(muted); setPadding(dp(20), dp(48), dp(20), dp(20)) }
         histList.setOnItemClickListener { _, _, pos, _ ->
             startActivity(Intent(this, BuildActivity::class.java).putExtra("history_id", items[pos].getString("id")))
         }
@@ -154,31 +131,34 @@ class MainActivity : Activity() {
     private fun showTab(hist: Boolean) {
         buildPane.visibility = if (hist) View.GONE else View.VISIBLE
         histPane.visibility = if (hist) View.VISIBLE else View.GONE
-        tabBuild.isEnabled = hist; tabHist.isEnabled = !hist
+        styleBtn(tabBuild, if (!hist) surface else Color.TRANSPARENT, if (!hist) txt else muted)
+        styleBtn(tabHist, if (hist) surface else Color.TRANSPARENT, if (hist) txt else muted)
+        tabBuild.minimumHeight = 0; tabHist.minimumHeight = 0
         if (hist) refreshHistory()
     }
 
     private fun refresh() {
         val t = TokenStore.get(this)
-        val showEntry = t == null || tokenInvalid
-        tokenEntry.visibility = if (showEntry) View.VISIBLE else View.GONE
-        tokenConnected.visibility = if (showEntry) View.GONE else View.VISIBLE
+        tokenEntry.visibility = if (t == null || tokenInvalid) View.VISIBLE else View.GONE
         entryState.text = entryMsg
-        tokenState.text = if (loginInfo.isNotEmpty()) loginInfo else if (t != null) "Verificando conta…" else ""
-        zipState.text = if (zipUri != null) "📦 $zipName" else "Nenhum arquivo selecionado"
-        btnBuild.isEnabled = t != null && !tokenInvalid && zipUri != null
+        zipState.text = if (zipUri != null) zipName else "Nenhum arquivo selecionado"
+        val pkg = if (zipUri != null) getDrawable(R.drawable.ic_package)?.mutate()?.apply { setTint(muted); setBounds(0, 0, dp(20), dp(20)) } else null
+        zipState.setCompoundDrawablesRelative(pkg, null, null, null)
+        zipState.compoundDrawablePadding = dp(8)
+        val ready = t != null && !tokenInvalid && zipUri != null
+        btnBuild.isEnabled = ready
+        styleBtn(btnBuild, if (ready) blue else surface, if (ready) Color.WHITE else muted)
     }
 
-    /** Confere o token salvo SEM apagá-lo se a rede falhar. */
+    /** Confere o token salvo SEM apagá-lo se a rede falhar. Só reabre o campo se o GitHub recusar o token. */
     private fun checkLogin() {
         val t = TokenStore.get(this) ?: return
         Thread {
-            var invalid = false
-            val info = try { "✔ Conectado como ${GitHub(t).call("GET", "/user").getString("login")}" }
-            catch (e: ApiException) { if (e.code == 401) { invalid = true; "" } else "⚠ ${e.message}" }
-            catch (e: Exception) { "⚠ Sem conexão para verificar agora" }
+            val invalid = try { GitHub(t).call("GET", "/user"); false }
+            catch (e: ApiException) { e.code == 401 }
+            catch (e: Exception) { false }
             runOnUiThread {
-                tokenInvalid = invalid; loginInfo = info
+                tokenInvalid = invalid
                 if (invalid) entryMsg = "O GitHub recusou o token salvo. Cole um novo."
                 refresh()
             }
@@ -193,7 +173,7 @@ class MainActivity : Activity() {
             try {
                 GitHub(t).call("GET", "/user")
                 if (!TokenStore.save(this, t)) throw Exception("não foi possível gravar com segurança neste aparelho")
-                runOnUiThread { tokenInput.text.clear(); tokenInvalid = false; loginInfo = ""; entryMsg = tokenHint; toast("Token salvo. Não precisa informar de novo."); refresh(); checkLogin() }
+                runOnUiThread { tokenInput.text.clear(); tokenInvalid = false; entryMsg = tokenHint; toast("Token salvo. Não precisa informar de novo."); refresh(); checkLogin() }
             } catch (e: Exception) {
                 runOnUiThread { entryMsg = "Token não salvo: ${e.message}"; refresh() }
             }
@@ -225,23 +205,36 @@ class MainActivity : Activity() {
     } catch (e: Exception) { "arquivo" }
 
     // ---------- Histórico ----------
-    private fun label(m: JSONObject): String {
-        val tag = when (m.optString("result")) {
-            "running" -> if (m.getString("id") == Sessions.runningId()) "⏳ Em andamento" else "⚠ Interrompido"
-            "success" -> "✔ Sucesso"
-            "cancelled" -> "Cancelado"
-            "interrupted" -> "⚠ Acompanhamento interrompido"
-            else -> "✘ Falhou"
+    /** Ícone, cor e rótulo simples de cada compilação. */
+    private fun status(m: JSONObject): Triple<Int, Int, String> {
+        return when (m.optString("result")) {
+            "running" -> if (m.getString("id") == Sessions.runningId()) Triple(R.drawable.ic_hourglass, blue, "Compilando")
+                         else Triple(R.drawable.ic_warning, amber, "Interrompido")
+            "success" -> Triple(R.drawable.ic_check_circle, green, "Pronto")
+            "cancelled" -> Triple(R.drawable.ic_cancel_circle, muted, "Cancelado")
+            "interrupted" -> Triple(R.drawable.ic_warning, amber, "Interrompido")
+            else -> Triple(R.drawable.ic_error_circle, red, "Não compilou")
         }
-        val start = m.optLong("startedAt"); val fin = m.optLong("finishedAt")
-        val date = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date(start))
-        val dur = if (fin > 0) { val s = (fin - start) / 1000; " · ${s / 60}m%02ds".format(s % 60) } else ""
-        return "$tag — $date\n${m.optString("zipName")} · ${m.optInt("stages")} etapas$dur"
     }
 
     private fun refreshHistory() {
         items = History.list(this)
-        histList.adapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, items.map { label(it) })
+        histList.adapter = object : ArrayAdapter<JSONObject>(this, 0, items) {
+            override fun getView(pos: Int, v: View?, parent: ViewGroup): View {
+                val m = getItem(pos)!!
+                val (icon, color, tag) = status(m)
+                val start = m.optLong("startedAt"); val fin = m.optLong("finishedAt")
+                val date = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date(start))
+                val dur = if (fin > 0) { val s = (fin - start) / 1000; " · ${s / 60}m%02ds".format(s % 60) } else ""
+                val row = LinearLayout(this@MainActivity).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(20), dp(14), dp(20), dp(14)) }
+                row.addView(ImageView(this@MainActivity).apply { setImageResource(icon); setColorFilter(color) }, LinearLayout.LayoutParams(dp(26), dp(26)))
+                val col = LinearLayout(this@MainActivity).apply { orientation = LinearLayout.VERTICAL }
+                col.addView(TextView(this@MainActivity).apply { text = "$tag — $date"; textSize = 15f; setTypeface(null, Typeface.BOLD); setTextColor(txt) })
+                col.addView(TextView(this@MainActivity).apply { text = m.optString("zipName") + dur; textSize = 13f; setTextColor(muted) })
+                row.addView(col, LinearLayout.LayoutParams(0, -2, 1f).apply { leftMargin = dp(16) })
+                return row
+            }
+        }
         histEmpty.visibility = if (items.isEmpty()) View.VISIBLE else View.GONE
     }
 

@@ -37,8 +37,8 @@ class BuildSession private constructor(private val ctx: Context, val gh: GitHub,
 
     companion object {
         val STAGES = listOf(
-            "Enviar projeto ao GitHub", "Preparar ambiente (runner, Java, Gradle)",
-            "Compilar APK", "Gerar e verificar APK"
+            "Enviando seu projeto", "Preparando a compilação",
+            "Compilando o app", "Finalizando o APK"
         )
         private const val BUILD_STEP = "Build debug APK"
         private val ANSI = Regex("\u001B\\[[0-9;]*[A-Za-z]")
@@ -283,7 +283,7 @@ jobs:
                                 .put("encoding", "base64")).getString("sha")
                             tree.put(entry(p, sha)); n++
                             retitle(0, "${STAGES[0]} ($n/${files.size} arquivos)")
-                            if (files.size <= 100 || n % 25 == 0 || n == files.size) log("✓ $p")
+                            if (files.size <= 100 || n % 25 == 0 || n == files.size) log("enviado: $p")
                         }
                     }
                     en = z.nextEntry
@@ -339,7 +339,7 @@ jobs:
 
     private fun trackSafely(runId: Long) {
         try { track(runId) } catch (e: Exception) {
-            log("ERRO ao acompanhar: ${e.message}", 4)
+            log("ERRO ao acompanhar: ${e.message}", 1)
             finish("interrupted", "Acompanhamento interrompido: ${e.message}. A compilação pode ter continuado no GitHub.")
         }
     }
